@@ -1,0 +1,56 @@
+{
+  "cgir_version": "0.1.0",
+  "droplet": {
+    "projection": { "cmax_ref": "ok_cmax_v1", "rule": "radial_clamp", "tol": 1e-12 },
+    "canonicalization": { "rule": "gray_axis_bias", "tol": 1e-12 }
+  },
+  "neurons": [
+    {
+      "id": "nsat",
+      "role": "presynaptic",
+      "state": {
+        "ok_state": { "L": 0.90, "a": 0.60, "b": 0.60 }
+      },
+      "notes": "intentionally high chroma likely outside OKLab droplet at L=0.90"
+    },
+    {
+      "id": "ngray",
+      "role": "postsynaptic",
+      "state": {
+        "ok_state": { "L": 0.90, "a": 0.0, "b": 0.0 }
+      },
+      "notes": "gray anchor bias"
+    }
+  ],
+  "events": [
+    {
+      "t_ms": 11,
+      "target": { "id": "ngray" },
+      "mixing": {
+        "inputs": [
+          { "source": { "id": "nsat" }, "weight": 1.0 }
+        ],
+        "weights_policy": "normalize"
+      },
+      "mix_raw_ok": {
+        "ok_state": { "L": 0.90, "a": 0.60, "b": 0.60 }
+      },
+      "after_projection_ok": {
+        "ok_state": { "L": 0.90, "a": 0.45, "b": 0.45 }
+      },
+      "reachable": false,
+      "canonical_alpha": {
+        "inputs": [
+          { "source": { "id": "nsat" }, "alpha": 1.0 }
+        ],
+        "bias": 0.0
+      },
+      "output_state_ok": {
+        "ok_state": { "L": 0.90, "a": 0.45, "b": 0.45 }
+      },
+      "provenance": {
+        "note": "Example demonstrating required projection with unreachable=false since mix_raw_ok lies outside the droplet."
+      }
+    }
+  ]
+}

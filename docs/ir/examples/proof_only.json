@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0",
+  "tool": "coqwasm-tir-emitter",
+  "module": {
+    "name": "Example.ProofOnly",
+    "decls": [
+      {
+        "kind": "Definition",
+        "name": "trivial_proof",
+        "proof_relevance": "proof",
+        "ty": { "kind": "TyUniverse", "level": "Prop" },
+        "term": {
+          "kind": "Lambda",
+          "param": { "name": "_", "ty": { "kind": "TyUniverse", "level": "Prop" } },
+          "body": { "kind": "Var", "name": "_", "ty": { "kind": "TyUniverse", "level": "Prop" } },
+          "ty": {
+            "kind": "TyArrow",
+            "param": { "name": "_", "ty": { "kind": "TyUniverse", "level": "Prop" } },
+            "result": { "kind": "TyUniverse", "level": "Prop" }
+          }
+        }
+      }
+    ]
+  }
+}

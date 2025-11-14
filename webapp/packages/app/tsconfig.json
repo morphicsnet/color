@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@oklab/core": ["../core/src"],
+      "@oklab/ir": ["../ir/src"],
+      "@oklab/worker": ["../worker/src"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

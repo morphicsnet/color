@@ -1,0 +1,49 @@
+{
+  "version": "0.1.0",
+  "tool": "coqwasm-oir-example",
+  "module": {
+    "name": "Example.OIR.AddI32",
+    "functions": [
+      {
+        "name": "add_i32",
+        "params": [
+          { "name": "x", "ty": { "kind": "i32" } },
+          { "name": "y", "ty": { "kind": "i32" } }
+        ],
+        "results": [
+          { "kind": "i32" }
+        ],
+        "blocks": [
+          {
+            "label": "entry",
+            "params": [],
+            "insts": [
+              {
+                "kind": "Binary",
+                "op": "add_i32",
+                "lhs": "%x",
+                "rhs": "%y",
+                "bind": { "result": "%r", "ty": { "kind": "i32" } }
+              }
+            ],
+            "term": { "kind": "Return", "values": ["%r"] }
+          }
+        ],
+        "export": true,
+        "attrs": { "pure": true }
+      }
+    ],
+    "globals": [],
+    "dataSegments": [],
+    "tables": []
+  },
+  "certificates": {
+    "erasure": [],
+    "dce": [],
+    "guards": []
+  },
+  "metadata": {
+    "debug": false,
+    "optLevel": 2
+  }
+}

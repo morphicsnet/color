@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+.env
+.env.*
+.mypy_cache/
+.pytest_cache/
+.coverage
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+webapp/node_modules/
+webapp/packages/*/node_modules/
+webapp/packages/*/dist
+webapp/packages/*/.vite
+
+# Project artifacts
+.cgir/
+build/
+*.wat
+*.wasm
+
+# IDE
+.vscode/
+.idea/

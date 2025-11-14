@@ -1,0 +1,564 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color-geometry.org/schemas/ir-schema.json",
+  "title": "Intermediate Representation (IR) for Mathematical Content Extraction and Coq Mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {}
+  },
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "description": "Semantic version of the IR instance",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$"
+    },
+    "document": { "$ref": "#/$defs/Document" },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Section" }
+    },
+    "statements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Statement" },
+      "uniqueItems": true
+    },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Symbol" },
+      "uniqueItems": true
+    },
+    "typesystem": { "$ref": "#/$defs/TypeSystem" },
+    "geometry_domain": { "$ref": "#/$defs/GeometryDomain" },
+    "dependency_graph": { "$ref": "#/$defs/DependencyGraph" },
+    "coq_mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CoqMapping" },
+      "uniqueItems": true
+    },
+    "build_meta": { "$ref": "#/$defs/BuildMeta" },
+    "x-constraints": {
+      "type": "object",
+      "description": "Non-standard cross-reference constraints for validators that support them",
+      "properties": {
+        "foreignKeys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "path"],
+            "properties": {
+              "from": {
+                "type": "string",
+                "enum": [
+                  "statements.symbols_used",
+                  "statements.symbols_declared",
+                  "statements.deps.target",
+                  "geometry_domain.metrics.definition_ref",
+                  "coq_mappings.for_id"
+                ]
+              },
+              "to": {
+                "type": "string",
+                "enum": ["symbols.id", "statements.id", "sections.id"]
+              },
+              "path": {
+                "type": "string",
+                "description": "JSON Pointer or JSONPath describing the referring field location"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "ir_version",
+    "document",
+    "sections",
+    "statements",
+    "symbols",
+    "typesystem",
+    "geometry_domain",
+    "dependency_graph",
+    "build_meta"
+  ],
+  "$defs": {
+    "ID": {
+      "type": "string",
+      "description": "Stable identifier usable across files and builds",
+      "pattern": "^[a-z][a-z0-9_.-]{2,63}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "BBox": {
+      "type": "array",
+      "description": "Bounding box [x_min, y_min, x_max, y_max] in PDF user space units",
+      "items": { "type": "number" },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "ToolVersions": {
+      "type": "object",
+      "description": "Tool name to version mapping",
+      "properties": {
+        "pdf_parser": { "type": "string" },
+        "nlp_normalizer": { "type": "string" },
+        "ir_to_coq": { "type": "string" },
+        "coq": { "type": "string", "enum": ["8.19", "8.20"] },
+        "ocaml": { "type": "string" },
+        "dune": { "type": "string" }
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "Provenance": {
+      "type": "object",
+      "description": "Source location and extraction details",
+      "properties": {
+        "pdf_relpath": { "type": "string", "pattern": "^pdf\\/.+\\.pdf$" },
+        "page": { "type": "integer", "minimum": 1 },
+        "bbox": { "$ref": "#/$defs/BBox" },
+        "text_span_offsets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "ocr": { "type": "boolean", "default": false },
+        "extraction_confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["pdf_relpath", "page"],
+      "additionalProperties": false
+    },
+    "Document": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "title": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "pattern": "^pdf\\/.+\\.pdf$" },
+        "sha256": { "$ref": "#/$defs/Sha256" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "tool_versions": { "$ref": "#/$defs/ToolVersions" },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" },
+          "description": "Root section ids",
+          "uniqueItems": true
+        },
+        "bibliography": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "text"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "text": { "type": "string", "minLength": 1 },
+              "doi": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "glossary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["term", "definition"],
+            "properties": {
+              "term": { "type": "string" },
+              "definition": { "type": "string" },
+              "symbol_ref": { "$ref": "#/$defs/ID" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["id", "title", "source_path", "sha256", "created_at", "tool_versions"]
+    },
+    "Section": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "title": { "type": "string" },
+        "number": { "type": "string", "pattern": "^(\\d+)(\\.\\d+)*$" },
+        "page_span": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "order": { "type": "integer", "minimum": 0 },
+        "parent_id": { "anyOf": [{ "$ref": "#/$defs/ID" }, { "type": "null" }] },
+        "children_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" },
+          "uniqueItems": true
+        }
+      },
+      "required": ["id", "title"]
+    },
+    "MathToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "raw": { "type": "string" },
+        "norm": { "type": "string", "description": "Normalized form (ASCII fallback, canonical case)" },
+        "kind": {
+          "type": "string",
+          "enum": ["ident", "number", "operator", "quantifier", "relation", "function", "binder", "delimiter"]
+        },
+        "symbol_ref": { "$ref": "#/$defs/ID" },
+        "ambiguity": {
+          "type": "object",
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ID" },
+              "minItems": 1
+            },
+            "note": { "type": "string" }
+          },
+          "required": ["candidates"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["raw", "kind"]
+    },
+    "MathBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "environment": { "type": "string", "enum": ["inline", "display", "equation", "align"] },
+        "src_format": { "type": "string", "enum": ["pdftext", "latex", "mathml"] },
+        "src": { "type": "string" },
+        "tokens": { "type": "array", "items": { "$ref": "#/$defs/MathToken" } },
+        "page": { "type": "integer", "minimum": 1 },
+        "bbox": { "$ref": "#/$defs/BBox" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "required": ["environment", "src_format", "src", "page"]
+    },
+    "ProofStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" },
+          "description": "Referenced statement ids"
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "required": ["text"]
+    },
+    "Proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/ProofStep" } },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" },
+          "description": "Citations or imported lemmas"
+        },
+        "completeness": { "type": "string", "enum": ["none", "sketch", "partial", "complete"] }
+      },
+      "required": ["completeness"]
+    },
+    "AxiomPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "module_tag": { "type": "string", "enum": ["constructive", "classical_local"] },
+        "justification": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["module_tag"]
+    },
+    "TypedParam": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_]*$" },
+        "type_expr": { "type": "string", "description": "Surface-level type expression prior to Coq elaboration" },
+        "coq_sort": { "type": "string", "enum": ["Prop", "Set", "Type"] },
+        "role": { "type": "string", "enum": ["implicit_forall", "exists", "assumption", "parameter"] }
+      },
+      "required": ["name", "type_expr", "coq_sort", "role"]
+    },
+    "StatementDep": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": { "$ref": "#/$defs/ID" },
+        "edge_type": { "type": "string", "enum": ["dependsOn", "specializes", "implies", "cites"] },
+        "justification": { "type": "string" }
+      },
+      "required": ["target", "edge_type"]
+    },
+    "Statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "kind": {
+          "type": "string",
+          "enum": ["Definition", "Axiom", "Lemma", "Theorem", "Proposition", "Corollary", "Example", "Assumption"]
+        },
+        "label": { "type": "string" },
+        "text": { "type": "string" },
+        "html": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "math_blocks": { "type": "array", "items": { "$ref": "#/$defs/MathBlock" } },
+        "symbols_declared": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" },
+          "uniqueItems": true
+        },
+        "symbols_used": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" }
+        },
+        "deps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StatementDep" }
+        },
+        "proof": { "$ref": "#/$defs/Proof" },
+        "axiom_policy": { "$ref": "#/$defs/AxiomPolicy" },
+        "params": {
+          "type": "array",
+          "description": "Quantifier-lifted typed binders for this statement",
+          "items": { "$ref": "#/$defs/TypedParam" }
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" },
+        "coq_mapping": { "$ref": "#/$defs/CoqMapping" }
+      },
+      "required": ["id", "kind", "label", "text", "confidence"]
+    },
+    "SymbolNormalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canonical_name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._]*$" },
+        "ascii_fallback": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._]*$" },
+        "greek_base": { "type": "string" }
+      },
+      "required": ["canonical_name", "ascii_fallback"]
+    },
+    "Symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "name": { "type": "string" },
+        "unicode": { "type": "string" },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "role": { "type": "string", "enum": ["Type", "Set", "Function", "Predicate", "Constant", "Parameter"] },
+        "arity": { "type": "integer", "minimum": 0 },
+        "type_expr": { "type": "string" },
+        "coq_sort": { "type": "string", "enum": ["Prop", "Set", "Type"] },
+        "defined_by": { "$ref": "#/$defs/ID" },
+        "scope": { "type": "string", "enum": ["document", "section", "statement"] },
+        "normalization": { "$ref": "#/$defs/SymbolNormalization" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "required": ["id", "name", "role", "arity", "type_expr", "coq_sort", "scope", "normalization"]
+    },
+    "TypeSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "builtin_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Real",
+              "Nat",
+              "Int",
+              "Bool",
+              "Vector",
+              "Matrix",
+              "ColorSpace",
+              "Metric",
+              "Transform",
+              "Cone",
+              "Illuminant"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "numeric_repr": { "type": "string", "enum": ["exact_rational", "decimal_real", "interval_real"] },
+        "policy": {
+          "type": "object",
+          "properties": {
+            "store_original_decimal": { "type": "boolean", "default": true },
+            "rational_approx": {
+              "type": "object",
+              "properties": {
+                "max_den": { "type": "integer", "minimum": 1 },
+                "method": { "type": "string", "enum": ["contfrac", "bestfrac"] }
+              },
+              "required": ["max_den", "method"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["builtin_types", "numeric_repr"]
+    },
+    "GeometryDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color_models": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["RGB", "sRGB", "XYZ", "Lab", "LCh", "Oklab", "OKLCh", "LMS", "Cone"]
+          },
+          "uniqueItems": true
+        },
+        "transforms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/ID" },
+              "name": { "type": "string" },
+              "kind": { "type": "string", "enum": ["linear", "non_linear"] },
+              "matrix": { "type": "array", "items": { "type": "array", "items": { "type": "number" } } },
+              "offset": { "type": "array", "items": { "type": "number" } },
+              "function_ref": { "type": "string" },
+              "adaptation": {
+                "type": "object",
+                "properties": {
+                  "method": { "type": "string", "enum": ["Bradford", "CAT02"] },
+                  "parameters": { "type": "object" }
+                },
+                "additionalProperties": false
+              },
+              "domain_space": { "type": "string" },
+              "codomain_space": { "type": "string" },
+              "definition_ref": { "$ref": "#/$defs/ID" }
+            },
+            "required": ["id", "name", "kind", "domain_space", "codomain_space"]
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/ID" },
+              "name": { "type": "string" },
+              "definition_ref": { "$ref": "#/$defs/ID" },
+              "domain": { "type": "string" }
+            },
+            "required": ["id", "name", "definition_ref"]
+          }
+        }
+      },
+      "required": ["color_models"]
+    },
+    "DependencyGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/ID" },
+              "kind": { "type": "string", "enum": ["Document", "Section", "Statement", "Symbol"] },
+              "label": { "type": "string" }
+            },
+            "required": ["id", "kind"]
+          },
+          "uniqueItems": true
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "from": { "$ref": "#/$defs/ID" },
+              "to": { "$ref": "#/$defs/ID" },
+              "type": {
+                "type": "string",
+                "enum": ["usesSymbol", "dependsOn", "specializes", "implies", "cites"]
+              },
+              "justification": { "type": "string" },
+              "source_location": { "$ref": "#/$defs/Provenance" }
+            },
+            "required": ["from", "to", "type"]
+          }
+        }
+      },
+      "required": ["nodes", "edges"]
+    },
+    "CoqMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "module_path": { "type": "string", "pattern": "^([A-Z][A-Za-z0-9_]*)(\\.[A-Z][A-Za-z0-9_]*)*$" },
+        "ident": { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_']*$" },
+        "construct": {
+          "type": "string",
+          "enum": ["Inductive", "Record", "Definition", "Parameter", "Axiom", "Lemma", "Theorem"]
+        },
+        "opacity": { "type": "string", "enum": ["opaque", "transparent"] },
+        "inline": { "type": "boolean" },
+        "unfolding_hint": { "type": "string", "enum": ["none", "transparent", "rewrite"] },
+        "classical_boundary": { "type": "boolean" },
+        "for_id": { "$ref": "#/$defs/ID" }
+      },
+      "required": [
+        "module_path",
+        "ident",
+        "construct",
+        "opacity",
+        "inline",
+        "unfolding_hint",
+        "classical_boundary",
+        "for_id"
+      ]
+    },
+    "BuildMeta": {
+      "type": "object",
+      "description": "Build and reproducibility metadata",
+      "additionalProperties": false,
+      "properties": {
+        "ir_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$"
+        },
+        "reproducibility_digest": { "$ref": "#/$defs/Sha256" },
+        "tool_versions": { "$ref": "#/$defs/ToolVersions" },
+        "build_profile": { "type": "string", "enum": ["debug", "release"] },
+        "wasm_runtime": { "type": "string", "enum": ["ocamlrun"] }
+      },
+      "required": ["ir_version", "reproducibility_digest", "build_profile", "wasm_runtime"]
+    }
+  }
+}

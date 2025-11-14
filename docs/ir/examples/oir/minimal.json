@@ -1,0 +1,40 @@
+{
+  "version": "0.1.0",
+  "tool": "coqwasm-oir-example",
+  "module": {
+    "name": "Example.OIR.BoolId",
+    "functions": [
+      {
+        "name": "id_i32",
+        "params": [
+          { "name": "x", "ty": { "kind": "i32" } }
+        ],
+        "results": [
+          { "kind": "i32" }
+        ],
+        "blocks": [
+          {
+            "label": "entry",
+            "params": [],
+            "insts": [],
+            "term": { "kind": "Return", "values": ["%x"] }
+          }
+        ],
+        "export": true,
+        "attrs": { "pure": true }
+      }
+    ],
+    "globals": [],
+    "dataSegments": [],
+    "tables": []
+  },
+  "certificates": {
+    "erasure": [],
+    "dce": [],
+    "guards": []
+  },
+  "metadata": {
+    "debug": false,
+    "optLevel": 2
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "cgir_version": "0.1.0",
+  "droplet": {
+    "projection": { "cmax_ref": "ok_cmax_v1", "rule": "radial_clamp", "tol": 1e-12 },
+    "canonicalization": { "rule": "gray_axis_bias", "tol": 1e-12 }
+  },
+  "neurons": [
+    {
+      "id": "n01",
+      "role": "presynaptic",
+      "state": {
+        "ok_state": { "L": 0.65, "a": 0.28, "b": 0.20 }
+      },
+      "notes": "bright saturated red"
+    },
+    {
+      "id": "n02",
+      "role": "presynaptic",
+      "state": {
+        "ok_state": { "L": 0.65, "a": -0.12, "b": 0.18 }
+      },
+      "notes": "greenish hue"
+    },
+    {
+      "id": "n03",
+      "role": "postsynaptic",
+      "state": {
+        "ok_state": { "L": 0.50, "a": 0.0, "b": 0.0 }
+      },
+      "notes": "gray anchor bias"
+    }
+  ],
+  "events": [
+    {
+      "t_ms": 103,
+      "target": { "id": "n03" },
+      "mixing": {
+        "inputs": [
+          { "source": { "id": "n01" }, "weight": 0.6 },
+          { "source": { "id": "n02" }, "weight": 0.4 }
+        ],
+        "weights_policy": "normalize"
+      },
+      "mix_raw_ok": {
+        "ok_state": { "L": 0.65, "a": 0.08, "b": 0.19 }
+      },
+      "after_projection_ok": {
+        "ok_state": { "L": 0.65, "a": 0.08, "b": 0.19 }
+      },
+      "reachable": true,
+      "canonical_alpha": {
+        "inputs": [
+          { "source": { "id": "n01" }, "alpha": 0.6 },
+          { "source": { "id": "n02" }, "alpha": 0.4 }
+        ],
+        "bias": 0.0
+      },
+      "output_state_ok": {
+        "ok_state": { "L": 0.65, "a": 0.08, "b": 0.19 }
+      }
+    }
+  ]
+}

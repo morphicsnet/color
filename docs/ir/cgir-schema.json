@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color-geometry.org/schemas/cgir-schema.json",
+  "title": "Color Geometry IR (CGIR)",
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {}
+  },
+  "properties": {
+    "cgir_version": {
+      "type": "string",
+      "description": "Semantic version of the CGIR instance",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$"
+    },
+    "droplet": { "$ref": "#/$defs/Droplet" },
+    "neurons": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Neuron" },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/EventEntry" }
+    }
+  },
+  "required": ["cgir_version", "droplet", "neurons", "events"],
+  "$defs": {
+    "ID": {
+      "type": "string",
+      "description": "Stable identifier usable across files and builds",
+      "pattern": "^[a-z][a-z0-9_.-]{2,63}$"
+    },
+    "AngleRad": {
+      "type": "number",
+      "description": "Angle in radians on canonical interval [-pi, pi)",
+      "minimum": -3.141592653589793,
+      "exclusiveMaximum": 3.141592653589793
+    },
+    "ColorState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "L": { "type": "number", "minimum": 0, "maximum": 1 },
+            "a": { "type": "number" },
+            "b": { "type": "number" }
+          },
+          "required": ["L", "a", "b"]
+        },
+        "lch_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "L": { "type": "number", "minimum": 0, "maximum": 1 },
+            "h": { "$ref": "#/$defs/AngleRad" },
+            "Sprime": { "type": "number", "minimum": 0 }
+          },
+          "required": ["L", "h", "Sprime"]
+        }
+      },
+      "anyOf": [
+        { "required": ["ok_state"] },
+        { "required": ["lch_state"] }
+      ]
+    },
+    "Neuron": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "role": { "type": "string", "enum": ["presynaptic", "postsynaptic", "interneuron", "bias"] },
+        "state": { "$ref": "#/$defs/ColorState" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "state"]
+    },
+    "NeuronRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "id": { "$ref": "#/$defs/ID" } },
+      "required": ["id"]
+    },
+    "InputWeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "$ref": "#/$defs/NeuronRef" },
+        "weight": { "type": "number", "minimum": 0 }
+      },
+      "required": ["source", "weight"]
+    },
+    "MixingOp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/InputWeight" }
+        },
+        "weights_policy": { "type": "string", "enum": ["normalize", "strict_sum_1"], "default": "normalize" },
+        "sum_assertion": { "type": "number" }
+      },
+      "required": ["inputs"]
+    },
+    "ProjectionSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cmax_ref": { "type": "string", "enum": ["ok_cmax_v1"] },
+        "rule": { "type": "string", "enum": ["radial_clamp"] },
+        "tol": { "type": "number", "default": 1e-12 }
+      },
+      "required": ["cmax_ref", "rule"]
+    },
+    "CanonicalizationSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rule": { "type": "string", "enum": ["gray_axis_bias"] },
+        "tol": { "type": "number", "default": 1e-12 }
+      },
+      "required": ["rule"]
+    },
+    "Droplet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "projection": { "$ref": "#/$defs/ProjectionSpec" },
+        "canonicalization": { "$ref": "#/$defs/CanonicalizationSpec" }
+      },
+      "required": ["projection", "canonicalization"]
+    },
+    "Alpha": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source": { "$ref": "#/$defs/NeuronRef" },
+              "alpha": { "type": "number", "minimum": 0 }
+            },
+            "required": ["source", "alpha"]
+          }
+        },
+        "bias": { "type": "number", "minimum": 0 }
+      }
+    },
+    "EventEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t_ms": { "type": "integer", "minimum": 0 },
+        "target": { "$ref": "#/$defs/NeuronRef" },
+        "mixing": { "$ref": "#/$defs/MixingOp" },
+        "mix_raw_ok": { "$ref": "#/$defs/ColorState" },
+        "after_projection_ok": { "$ref": "#/$defs/ColorState" },
+        "reachable": { "type": "boolean" },
+        "canonical_alpha": { "$ref": "#/$defs/Alpha" },
+        "output_state_ok": { "$ref": "#/$defs/ColorState" },
+        "provenance": { "type": "object" }
+      },
+      "required": ["t_ms", "target", "mixing", "mix_raw_ok", "after_projection_ok", "reachable", "output_state_ok"]
+    }
+  }
+}

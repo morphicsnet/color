@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color.example.org/schemas/oir-schema.json",
+  "title": "Optimization Intermediate Representation (O-IR) for Coq→WASM",
+  "type": "object",
+  "properties": {
+    "version": { "type": "string" },
+    "tool": { "type": "string" },
+    "module": { "$ref": "#/$defs/Module" },
+    "certificates": { "$ref": "#/$defs/Certificates" },
+    "metadata": { "$ref": "#/$defs/ModuleMetadata" }
+  },
+  "required": ["module"],
+  "additionalProperties": false,
+  "$defs": {
+    "Identifier": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_'.]*$" },
+    "Name": { "type": "string" },
+
+    "OType": {
+      "oneOf": [
+        { "$ref": "#/$defs/TyI32" },
+        { "$ref": "#/$defs/TyI64" },
+        { "$ref": "#/$defs/TyF32" },
+        { "$ref": "#/$defs/TyF64" },
+        { "$ref": "#/$defs/TyRef" },
+        { "$ref": "#/$defs/TyBlock" },
+        { "$ref": "#/$defs/TyUnit" }
+      ]
+    },
+    "TyI32": { "type": "object", "properties": { "kind": { "const": "i32" } }, "required": ["kind"], "additionalProperties": false },
+    "TyI64": { "type": "object", "properties": { "kind": { "const": "i64" } }, "required": ["kind"], "additionalProperties": false },
+    "TyF32": { "type": "object", "properties": { "kind": { "const": "f32" } }, "required": ["kind"], "additionalProperties": false },
+    "TyF64": { "type": "object", "properties": { "kind": { "const": "f64" } }, "required": ["kind"], "additionalProperties": false },
+    "TyRef": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "ref" },
+        "refKind": { "enum": ["fun", "block", "table", "extern"] }
+      },
+      "required": ["kind", "refKind"],
+      "additionalProperties": false
+    },
+    "TyBlock": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "block" },
+        "tagSpace": { "type": "string" }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "TyUnit": { "type": "object", "properties": { "kind": { "const": "unit" } }, "required": ["kind"], "additionalProperties": false },
+
+    "ValueId": { "type": "string", "pattern": "^[%][A-Za-z_][A-Za-z0-9_]*$" },
+    "BlockLabel": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+
+    "Param": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Name" },
+        "ty": { "$ref": "#/$defs/OType" }
+      },
+      "required": ["name", "ty"],
+      "additionalProperties": false
+    },
+
+    "Global": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "init": { "$ref": "#/$defs/Const" },
+        "mutable": { "type": "boolean", "default": false },
+        "ty": { "$ref": "#/$defs/OType" }
+      },
+      "required": ["name", "init", "ty"],
+      "additionalProperties": false
+    },
+
+    "Function": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "default": [] },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/OType" }, "default": [] },
+        "locals": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "default": [] },
+        "blocks": { "type": "array", "items": { "$ref": "#/$defs/BasicBlock" } },
+        "export": { "type": "boolean", "default": false },
+        "linkage": { "enum": ["internal", "external"], "default": "internal" },
+        "attrs": { "$ref": "#/$defs/FunAttributes" },
+        "sourceMap": { "$ref": "#/$defs/SourceMap" }
+      },
+      "required": ["name", "blocks"],
+      "additionalProperties": false
+    },
+
+    "FunAttributes": {
+      "type": "object",
+      "properties": {
+        "tailCall": { "type": "boolean", "default": false },
+        "noInline": { "type": "boolean", "default": false },
+        "pure": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+
+    "BasicBlock": {
+      "type": "object",
+      "properties": {
+        "label": { "$ref": "#/$defs/BlockLabel" },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "default": [] },
+        "insts": { "type": "array", "items": { "$ref": "#/$defs/Instruction" }, "default": [] },
+        "term": { "$ref": "#/$defs/Terminator" }
+      },
+      "required": ["label", "term"],
+      "additionalProperties": false
+    },
+
+    "Instruction": {
+      "oneOf": [
+        { "$ref": "#/$defs/InstConst" },
+        { "$ref": "#/$defs/InstUnary" },
+        { "$ref": "#/$defs/InstBinary" },
+        { "$ref": "#/$defs/InstSelect" },
+        { "$ref": "#/$defs/InstCall" },
+        { "$ref": "#/$defs/InstLoad" },
+        { "$ref": "#/$defs/InstStore" },
+        { "$ref": "#/$defs/InstHeapNew" },
+        { "$ref": "#/$defs/InstHeapGet" },
+        { "$ref": "#/$defs/InstHeapSet" },
+        { "$ref": "#/$defs/InstTagOf" },
+        { "$ref": "#/$defs/InstLenOf" },
+        { "$ref": "#/$defs/InstGuard" }
+      ]
+    },
+
+    "ResultBinding": {
+      "type": "object",
+      "properties": {
+        "result": { "$ref": "#/$defs/ValueId" },
+        "ty": { "$ref": "#/$defs/OType" }
+      },
+      "required": ["result", "ty"],
+      "additionalProperties": false
+    },
+
+    "InstConst": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Const" },
+        "bind": { "$ref": "#/$defs/ResultBinding" },
+        "value": { "$ref": "#/$defs/Const" }
+      },
+      "required": ["kind", "bind", "value"],
+      "additionalProperties": false
+    },
+    "Const": {
+      "type": "object",
+      "properties": {
+        "ty": { "$ref": "#/$defs/OType" },
+        "value": {}
+      },
+      "required": ["ty", "value"],
+      "additionalProperties": false
+    },
+
+    "InstUnary": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Unary" },
+        "op": { "enum": ["neg_i32","neg_i64","abs_f32","abs_f64","not_i32","not_i64"] },
+        "arg": { "$ref": "#/$defs/ValueId" },
+        "bind": { "$ref": "#/$defs/ResultBinding" }
+      },
+      "required": ["kind", "op", "arg", "bind"],
+      "additionalProperties": false
+    },
+
+    "InstBinary": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Binary" },
+        "op": {
+          "enum": [
+            "add_i32","sub_i32","mul_i32","div_s_i32","div_u_i32","rem_s_i32","rem_u_i32",
+            "and_i32","or_i32","xor_i32","shl_i32","shr_s_i32","shr_u_i32",
+            "add_i64","sub_i64","mul_i64","div_s_i64","div_u_i64","and_i64","or_i64","xor_i64","shl_i64","shr_s_i64","shr_u_i64",
+            "add_f32","sub_f32","mul_f32","div_f32",
+            "add_f64","sub_f64","mul_f64","div_f64",
+            "eq_i32","ne_i32","lt_s_i32","lt_u_i32","le_s_i32","le_u_i32","gt_s_i32","gt_u_i32","ge_s_i32","ge_u_i32",
+            "eq_i64","ne_i64","lt_s_i64","le_s_i64","gt_s_i64","ge_s_i64",
+            "eq_f32","ne_f32","lt_f32","le_f32","gt_f32","ge_f32",
+            "eq_f64","ne_f64","lt_f64","le_f64","gt_f64","ge_f64"
+          ]
+        },
+        "lhs": { "$ref": "#/$defs/ValueId" },
+        "rhs": { "$ref": "#/$defs/ValueId" },
+        "bind": { "$ref": "#/$defs/ResultBinding" }
+      },
+      "required": ["kind","op","lhs","rhs","bind"],
+      "additionalProperties": false
+    },
+
+    "InstSelect": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Select" },
+        "cond": { "$ref": "#/$defs/ValueId" },
+        "ifTrue": { "$ref": "#/$defs/ValueId" },
+        "ifFalse": { "$ref": "#/$defs/ValueId" },
+        "bind": { "$ref": "#/$defs/ResultBinding" }
+      },
+      "required": ["kind","cond","ifTrue","ifFalse","bind"],
+      "additionalProperties": false
+    },
+
+    "InstCall": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Call" },
+        "callee": { "$ref": "#/$defs/Identifier" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/ValueId" }, "default": [] },
+        "binds": { "type": "array", "items": { "$ref": "#/$defs/ResultBinding" }, "default": [] }
+      },
+      "required": ["kind","callee"],
+      "additionalProperties": false
+    },
+
+    "MemAddr": {
+      "type": "object",
+      "properties": {
+        "base": { "$ref": "#/$defs/ValueId" },
+        "offset": { "type": "integer", "minimum": 0, "default": 0 },
+        "align": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "required": ["base"],
+      "additionalProperties": false
+    },
+
+    "InstLoad": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Load" },
+        "ty": { "$ref": "#/$defs/OType" },
+        "addr": { "$ref": "#/$defs/MemAddr" },
+        "bind": { "$ref": "#/$defs/ResultBinding" }
+      },
+      "required": ["kind","ty","addr","bind"],
+      "additionalProperties": false
+    },
+
+    "InstStore": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Store" },
+        "ty": { "$ref": "#/$defs/OType" },
+        "addr": { "$ref": "#/$defs/MemAddr" },
+        "value": { "$ref": "#/$defs/ValueId" }
+      },
+      "required": ["kind","ty","addr","value"],
+      "additionalProperties": false
+    },
+
+    "InstHeapNew": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "HeapNew" },
+        "bind": { "$ref": "#/$defs/ResultBinding" },
+        "tag": { "type": "integer", "minimum": 0 },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/ValueId" }, "default": [] }
+      },
+      "required": ["kind","bind","tag","fields"],
+      "additionalProperties": false
+    },
+
+    "InstHeapGet": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "HeapGet" },
+        "bind": { "$ref": "#/$defs/ResultBinding" },
+        "obj": { "$ref": "#/$defs/ValueId" },
+        "index": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["kind","bind","obj","index"],
+      "additionalProperties": false
+    },
+
+    "InstHeapSet": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "HeapSet" },
+        "obj": { "$ref": "#/$defs/ValueId" },
+        "index": { "type": "integer", "minimum": 0 },
+        "value": { "$ref": "#/$defs/ValueId" }
+      },
+      "required": ["kind","obj","index","value"],
+      "additionalProperties": false
+    },
+
+    "InstTagOf": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TagOf" },
+        "bind": { "$ref": "#/$defs/ResultBinding" },
+        "obj": { "$ref": "#/$defs/ValueId" }
+      },
+      "required": ["kind","bind","obj"],
+      "additionalProperties": false
+    },
+
+    "InstLenOf": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "LenOf" },
+        "bind": { "$ref": "#/$defs/ResultBinding" },
+        "obj": { "$ref": "#/$defs/ValueId" }
+      },
+      "required": ["kind","bind","obj"],
+      "additionalProperties": false
+    },
+
+    "InstGuard": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Guard" },
+        "cond": { "$ref": "#/$defs/ValueId" },
+        "failureTag": { "type": "string" },
+        "reason": { "enum": ["index-erasure-guard","boundary-check","assume-proof"] }
+      },
+      "required": ["kind","cond"],
+      "additionalProperties": false
+    },
+
+    "Terminator": {
+      "oneOf": [
+        { "$ref": "#/$defs/TermReturn" },
+        { "$ref": "#/$defs/TermBr" },
+        { "$ref": "#/$defs/TermSwitch" },
+        { "$ref": "#/$defs/TermTrap" }
+      ]
+    },
+
+    "TermReturn": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Return" },
+        "values": { "type": "array", "items": { "$ref": "#/$defs/ValueId" }, "default": [] }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+
+    "TermBr": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Br" },
+        "target": { "$ref": "#/$defs/BlockLabel" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/ValueId" }, "default": [] }
+      },
+      "required": ["kind","target"],
+      "additionalProperties": false
+    },
+
+    "SwitchCase": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "integer", "minimum": 0 },
+        "target": { "$ref": "#/$defs/BlockLabel" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/ValueId" }, "default": [] }
+      },
+      "required": ["tag","target"],
+      "additionalProperties": false
+    },
+
+    "TermSwitch": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Switch" },
+        "on": { "$ref": "#/$defs/ValueId" },
+        "cases": { "type": "array", "items": { "$ref": "#/$defs/SwitchCase" } },
+        "default": { "$ref": "#/$defs/BlockLabel" }
+      },
+      "required": ["kind","on","cases","default"],
+      "additionalProperties": false
+    },
+
+    "TermTrap": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Trap" },
+        "reason": { "type": "string" }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+
+    "Module": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "globals": { "type": "array", "items": { "$ref": "#/$defs/Global" }, "default": [] },
+        "functions": { "type": "array", "items": { "$ref": "#/$defs/Function" } },
+        "dataSegments": { "type": "array", "items": { "$ref": "#/$defs/DataSegment" }, "default": [] },
+        "tables": { "type": "array", "items": { "$ref": "#/$defs/Table" }, "default": [] }
+      },
+      "required": ["name","functions"],
+      "additionalProperties": false
+    },
+
+    "DataSegment": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "offset": { "type": "integer", "minimum": 0 },
+        "bytes": { "type": "string", "contentEncoding": "base64" }
+      },
+      "required": ["name","offset","bytes"],
+      "additionalProperties": false
+    },
+
+    "Table": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "elemType": { "enum": ["funref","externref"] },
+        "elems": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "default": [] }
+      },
+      "required": ["name","elemType"],
+      "additionalProperties": false
+    },
+
+    "Certificates": {
+      "type": "object",
+      "properties": {
+        "erasure": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": { "$ref": "#/$defs/Identifier" },
+              "reason": { "enum": ["proof-irrelevant","index-only"] }
+            },
+            "required": ["symbol","reason"],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "dce": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": { "$ref": "#/$defs/Identifier" },
+              "kind": { "enum": ["binding","arg","function"] }
+            },
+            "required": ["symbol","kind"],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "guards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "site": { "$ref": "#/$defs/Identifier" },
+              "reason": { "enum": ["index-erasure-guard","boundary-check","assume-proof"] }
+            },
+            "required": ["site","reason"],
+            "additionalProperties": false
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "SourceSpan": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startCol": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endCol": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["file","startLine","startCol","endLine","endCol"],
+      "additionalProperties": false
+    },
+
+    "SourceMap": {
+      "type": "object",
+      "properties": {
+        "from": { "enum": ["coq","tir"] },
+        "spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "span": { "$ref": "#/$defs/SourceSpan" }
+            },
+            "required": ["value","span"],
+            "additionalProperties": false
+          },
+          "default": []
+        }
+      },
+      "required": ["from"],
+      "additionalProperties": false
+    },
+
+    "ModuleMetadata": {
+      "type": "object",
+      "properties": {
+        "debug": { "type": "boolean", "default": false },
+        "optLevel": { "type": "integer", "minimum": 0, "maximum": 3, "default": 2 },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "blockHeaderBytes": { "type": "integer", "minimum": 4, "default": 8 },
+            "tagFieldBits": { "type": "integer", "minimum": 8, "default": 16 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "version": "0.1.0",
+      "tool": "coqwasm-oir-lower",
+      "module": {
+        "name": "Example.OIR.BoolId",
+        "functions": [
+          {
+            "name": "id_i32",
+            "params": [ { "name": "x", "ty": { "kind": "i32" } } ],
+            "results": [ { "kind": "i32" } ],
+            "blocks": [
+              {
+                "label": "entry",
+                "params": [],
+                "insts": [],
+                "term": { "kind": "Return", "values": ["%x"] }
+              }
+            ],
+            "export": true,
+            "attrs": { "pure": true }
+          }
+        ],
+        "globals": [
+          { "name": "G0", "ty": { "kind": "i32" }, "init": { "ty": { "kind": "i32" }, "value": 0 } }
+        ],
+        "dataSegments": [],
+        "tables": []
+      },
+      "certificates": {
+        "erasure": [],
+        "dce": [],
+        "guards": []
+      }
+    }
+  ]
+}

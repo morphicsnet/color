@@ -1,0 +1,4 @@
+(coq.theory
+ (name Color)
+ (synopsis "Constructive core for Color Geometry (stdlib + Coquelicot only)")
+ (modules :standard))

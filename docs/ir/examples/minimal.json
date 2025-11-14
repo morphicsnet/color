@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0",
+  "tool": "coqwasm-tir-emitter",
+  "module": {
+    "name": "Example.BoolId",
+    "decls": [
+      {
+        "kind": "Inductive",
+        "name": "Bool",
+        "constructors": [
+          { "name": "true", "args": [] },
+          { "name": "false", "args": [] }
+        ]
+      },
+      {
+        "kind": "Definition",
+        "name": "id",
+        "ty": {
+          "kind": "TyArrow",
+          "param": { "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+          "result": { "kind": "TyVar", "name": "A" }
+        },
+        "term": {
+          "kind": "Lambda",
+          "param": { "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+          "body": { "kind": "Var", "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+          "ty": {
+            "kind": "TyArrow",
+            "param": { "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+            "result": { "kind": "TyVar", "name": "A" }
+          }
+        }
+      }
+    ]
+  }
+}

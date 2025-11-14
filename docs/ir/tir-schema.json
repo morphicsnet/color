@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color.example.org/schemas/tir-schema.json",
+  "title": "Typed Intermediate Representation (T-IR) for Coq→WASM",
+  "type": "object",
+  "properties": {
+    "version": { "type": "string" },
+    "tool": { "type": "string" },
+    "module": { "$ref": "#/$defs/Module" },
+    "certificates": { "$ref": "#/$defs/Certificates" }
+  },
+  "required": ["module"],
+  "$defs": {
+    "Identifier": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_'.]*$" },
+    "Name": { "type": "string" },
+    "UniverseLevel": { "type": "string" },
+    "UniverseConstraint": {
+      "type": "object",
+      "properties": {
+        "lhs": { "$ref": "#/$defs/UniverseLevel" },
+        "rel": { "enum": ["<=", "<", "=", ">=", ">"] },
+        "rhs": { "$ref": "#/$defs/UniverseLevel" }
+      },
+      "required": ["lhs", "rel", "rhs"],
+      "additionalProperties": false
+    },
+    "Param": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Name" },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["name", "ty"],
+      "additionalProperties": false
+    },
+    "Index": { "$ref": "#/$defs/Param" },
+    "Type": {
+      "oneOf": [
+        { "$ref": "#/$defs/TyVar" },
+        { "$ref": "#/$defs/TyUniverse" },
+        { "$ref": "#/$defs/TyArrow" },
+        { "$ref": "#/$defs/TyPi" },
+        { "$ref": "#/$defs/TyInductive" },
+        { "$ref": "#/$defs/TyApp" }
+      ]
+    },
+    "TyVar": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyVar" },
+        "name": { "$ref": "#/$defs/Name" }
+      },
+      "required": ["kind", "name"],
+      "additionalProperties": false
+    },
+    "TyUniverse": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyUniverse" },
+        "level": { "$ref": "#/$defs/UniverseLevel" }
+      },
+      "required": ["kind", "level"],
+      "additionalProperties": false
+    },
+    "TyArrow": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyArrow" },
+        "param": { "$ref": "#/$defs/Param" },
+        "result": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "param", "result"],
+      "additionalProperties": false
+    },
+    "TyPi": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyPi" },
+        "param": { "$ref": "#/$defs/Param" },
+        "result": { "$ref": "#/$defs/Type" },
+        "dependent": { "type": "boolean" }
+      },
+      "required": ["kind", "param", "result"],
+      "additionalProperties": false
+    },
+    "TyInductive": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyInductive" },
+        "name": { "$ref": "#/$defs/Identifier" },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/Type" }, "default": [] },
+        "indices": { "type": "array", "items": { "$ref": "#/$defs/Type" }, "default": [] }
+      },
+      "required": ["kind", "name"],
+      "additionalProperties": false
+    },
+    "TyApp": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "TyApp" },
+        "fn": { "$ref": "#/$defs/Type" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/Type" } }
+      },
+      "required": ["kind", "fn", "args"],
+      "additionalProperties": false
+    },
+    "Term": {
+      "oneOf": [
+        { "$ref": "#/$defs/TmVar" },
+        { "$ref": "#/$defs/TmConst" },
+        { "$ref": "#/$defs/TmLambda" },
+        { "$ref": "#/$defs/TmLet" },
+        { "$ref": "#/$defs/TmApp" },
+        { "$ref": "#/$defs/TmMatch" },
+        { "$ref": "#/$defs/TmFix" },
+        { "$ref": "#/$defs/TmConstruct" },
+        { "$ref": "#/$defs/TmPrim" }
+      ]
+    },
+    "TmVar": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Var" },
+        "name": { "$ref": "#/$defs/Name" },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "name", "ty"],
+      "additionalProperties": false
+    },
+    "TmConst": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Const" },
+        "name": { "$ref": "#/$defs/Identifier" },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "name", "ty"],
+      "additionalProperties": false
+    },
+    "TmLambda": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Lambda" },
+        "param": { "$ref": "#/$defs/Param" },
+        "body": { "$ref": "#/$defs/Term" },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "param", "body", "ty"],
+      "additionalProperties": false
+    },
+    "TmLet": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Let" },
+        "name": { "$ref": "#/$defs/Name" },
+        "value": { "$ref": "#/$defs/Term" },
+        "valueTy": { "$ref": "#/$defs/Type" },
+        "body": { "$ref": "#/$defs/Term" },
+        "ty": { "$ref": "#/$defs/Type" },
+        "unfold_hint": { "type": "boolean", "default": false }
+      },
+      "required": ["kind", "name", "value", "valueTy", "body", "ty"],
+      "additionalProperties": false
+    },
+    "TmApp": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "App" },
+        "fn": { "$ref": "#/$defs/Term" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/Term" } },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "fn", "args", "ty"],
+      "additionalProperties": false
+    },
+    "Case": {
+      "type": "object",
+      "properties": {
+        "ctor": { "$ref": "#/$defs/Identifier" },
+        "binders": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "default": [] },
+        "body": { "$ref": "#/$defs/Term" }
+      },
+      "required": ["ctor", "body"],
+      "additionalProperties": false
+    },
+    "TmMatch": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Match" },
+        "scrutinee": { "$ref": "#/$defs/Term" },
+        "cases": { "type": "array", "items": { "$ref": "#/$defs/Case" } },
+        "resultTy": { "$ref": "#/$defs/Type" },
+        "coverage_cert": { "type": "string" }
+      },
+      "required": ["kind", "scrutinee", "cases", "resultTy"],
+      "additionalProperties": false
+    },
+    "FixFun": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Name" },
+        "param": { "$ref": "#/$defs/Param" },
+        "body": { "$ref": "#/$defs/Term" },
+        "measure": { "type": "string" },
+        "guard_cert": { "type": "string" }
+      },
+      "required": ["name", "param", "body"],
+      "additionalProperties": false
+    },
+    "TmFix": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Fix" },
+        "funs": { "type": "array", "items": { "$ref": "#/$defs/FixFun" } },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "funs", "ty"],
+      "additionalProperties": false
+    },
+    "TmConstruct": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Construct" },
+        "inductive": { "$ref": "#/$defs/Identifier" },
+        "ctor": { "$ref": "#/$defs/Identifier" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/Term" } },
+        "ty": { "$ref": "#/$defs/Type" }
+      },
+      "required": ["kind", "inductive", "ctor", "args", "ty"],
+      "additionalProperties": false
+    },
+    "TmPrim": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Prim" },
+        "prim": { "enum": ["Int", "Int64", "Float", "String", "Bool"] },
+        "value": {}
+      },
+      "required": ["kind", "prim", "value"],
+      "additionalProperties": false
+    },
+    "Constructor": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/Type" }, "default": [] }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "InductiveDecl": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Inductive" },
+        "name": { "$ref": "#/$defs/Identifier" },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/Param" }, "default": [] },
+        "indices": { "type": "array", "items": { "$ref": "#/$defs/Index" }, "default": [] },
+        "constructors": { "type": "array", "items": { "$ref": "#/$defs/Constructor" } },
+        "positivity_cert": { "type": "string" }
+      },
+      "required": ["kind", "name", "constructors"],
+      "additionalProperties": false
+    },
+    "DefinitionDecl": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "Definition" },
+        "name": { "$ref": "#/$defs/Identifier" },
+        "term": { "$ref": "#/$defs/Term" },
+        "ty": { "$ref": "#/$defs/Type" },
+        "universe_constraints": { "type": "array", "items": { "$ref": "#/$defs/UniverseConstraint" }, "default": [] },
+        "proof_relevance": { "enum": ["relevant", "proof"] }
+      },
+      "required": ["kind", "name", "term", "ty"],
+      "additionalProperties": false
+    },
+    "GlobalDecl": {
+      "oneOf": [
+        { "$ref": "#/$defs/DefinitionDecl" },
+        { "$ref": "#/$defs/InductiveDecl" }
+      ]
+    },
+    "Module": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "universe_context": { "type": "array", "items": { "$ref": "#/$defs/UniverseConstraint" }, "default": [] },
+        "decls": { "type": "array", "items": { "$ref": "#/$defs/GlobalDecl" } }
+      },
+      "required": ["name", "decls"],
+      "additionalProperties": false
+    },
+    "Certificates": {
+      "type": "object",
+      "properties": {
+        "erasure": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": { "$ref": "#/$defs/Identifier" },
+              "reason": { "enum": ["proof-irrelevant", "index-only"] }
+            },
+            "required": ["symbol", "reason"],
+            "additionalProperties": false
+          }
+        },
+        "dce": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": { "$ref": "#/$defs/Identifier" },
+              "kind": { "enum": ["binding", "arg"] }
+            },
+            "required": ["symbol", "kind"],
+            "additionalProperties": false
+          }
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "match_id": { "type": "string" },
+              "status": { "enum": ["exhaustive", "incomplete"] }
+            },
+            "required": ["match_id", "status"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "version": "0.1.0",
+      "tool": "coqwasm-tir-emitter",
+      "module": {
+        "name": "Example.Module",
+        "decls": [
+          {
+            "kind": "Inductive",
+            "name": "Bool",
+            "constructors": [
+              { "name": "true", "args": [] },
+              { "name": "false", "args": [] }
+            ]
+          },
+          {
+            "kind": "Definition",
+            "name": "id",
+            "ty": { "kind": "TyArrow", "param": { "name": "x", "ty": { "kind": "TyUniverse", "level": "Set" } }, "result": { "kind": "TyVar", "name": "A" } },
+            "term": {
+              "kind": "Lambda",
+              "param": { "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+              "body": { "kind": "Var", "name": "x", "ty": { "kind": "TyVar", "name": "A" } },
+              "ty": { "kind": "TyArrow", "param": { "name": "x", "ty": { "kind": "TyVar", "name": "A" } }, "result": { "kind": "TyVar", "name": "A" } }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+pymupdf>=1.23.1
+pdfminer.six>=20221105
+lxml>=4.9.3
+jsonschema>=4.22.0
+rich>=13.7.0
