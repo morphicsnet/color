@@ -94,6 +94,12 @@ export interface EventEntry {
   provenance?: any;
 }
 
+export interface SimulationStep {
+  step: number;
+  time: number;
+  state: Record<string, any>;
+}
+
 export interface Droplet {
   projection: {
     cmax_ref: string;
@@ -185,6 +191,88 @@ export class CGIRBuilder {
 
   toString(): string {
     return JSON.stringify(this.toJSON(), null, 2);
+  }
+
+  /** Run geometric simulation */
+  simulate(steps: number = 100, dt: number = 0.01): SimulationStep[] {
+    const trajectory: SimulationStep[] = [];
+    const currentState: Record<string, any> = {};
+
+    // Initialize state
+    if (this.cgir.state) {
+      for (const variable of this.cgir.state) {
+        currentState[variable.id] = variable.value;
+      }
+    }
+
+    let currentTime = 0;
+
+    for (let step = 0; step < steps; step++) {
+      // Record current state
+      trajectory.push({
+        step,
+        time: currentTime,
+        state: { ...currentState }
+      });
+
+      // Process interactions
+      if (this.cgir.interactions) {
+        for (const interaction of this.cgir.interactions) {
+          this.processInteraction(interaction, currentState);
+        }
+      }
+
+      // Process intents at current time
+      if (this.cgir.events) {
+        for (const event of this.cgir.events) {
+          if ('kind' in event && event.time <= currentTime) {
+            this.processIntent(event, currentState);
+          }
+        }
+      }
+
+      currentTime += dt;
+    }
+
+    return trajectory;
+  }
+
+  private processInteraction(interaction: Interaction, state: Record<string, any>): void {
+    if (interaction.kind === 'convex_mix' && interaction.space === 'oklab') {
+      this.processConvexMix(interaction, state);
+    }
+    // Add more interaction types...
+  }
+
+  private processConvexMix(interaction: Interaction, state: Record<string, any>): void {
+    const inputs = interaction.inputs;
+    if (!inputs || inputs.length < 2) return;
+
+    // Simple equal weighting for demonstration
+    const weights = inputs.map(() => 1.0 / inputs.length);
+    const values = inputs.map(id => state[id]).filter(v => v);
+
+    if (values.length >= 2) {
+      // For OKLab mixing, assume simple averaging
+      const result = {
+        L: values.reduce((sum, v) => sum + (v.L || 0), 0) / values.length,
+        a: values.reduce((sum, v) => sum + (v.a || 0), 0) / values.length,
+        b: values.reduce((sum, v) => sum + (v.b || 0), 0) / values.length
+      };
+
+      // Update first input as target
+      state[inputs[0]] = result;
+    }
+  }
+
+  private processIntent(intent: GeometricIntent, state: Record<string, any>): void {
+    if (intent.kind === 'state_injection' && intent.target) {
+      const value = intent.params?.value;
+      if (value) {
+        state[intent.target] = value;
+      }
+    }
+    // Add more intent types...
   }
 
   static fromJSON(json: CGIR): CGIRBuilder {

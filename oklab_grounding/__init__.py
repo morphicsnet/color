@@ -5,7 +5,7 @@ A framework for symbol grounding over perceptual spaces, instantiated in OKLab c
 """
 
 from .space import GroundSpace, GroundRegion, Grounding, Symbol
-from .oklab import OKLabSpace
+from .oklab import OKLabSpace, SphericalRegion
 from .cgir import CGIRBuilder, SpaceDefinition, StateVariable, Interaction, Operator, GeometricIntent
 from .verification import Verifier, OKLabVerifier, verify_grounding_consistency, verify_oklab_consistency
 from .server import run_server
@@ -16,6 +16,7 @@ __all__ = [
     'Grounding',
     'Symbol',
     'OKLabSpace',
+    'SphericalRegion',
     'CGIRBuilder',
     'SpaceDefinition',
     'StateVariable',

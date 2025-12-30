@@ -40,6 +40,27 @@ class Verifier(Generic[S]):
                         f"Distance non-negativity violated: d({x}, {y}) = {dist} < 0"
                     )
 
+    def verify_region_properties(self, regions: List['GroundRegion[S]']) -> None:
+        """
+        Verify region properties and consistency.
+
+        Checks that regions are well-formed and consistent with space properties.
+        """
+        for region in regions:
+            # Test region containment is consistent
+            # This is a basic check - more sophisticated region verification
+            # would depend on the specific region implementation
+            try:
+                # For regions with centers, verify center is valid in space
+                center = getattr(region, 'center', None)
+                if center is not None and not self.space.validate(center):
+                    raise VerificationError(
+                        f"Region center {center} is not valid in space"
+                    )
+            except AttributeError:
+                # Region doesn't have center property, skip this check
+                pass
+
     def verify_distance_reflexivity(self, points: List[S], tol: float = 1e-12) -> None:
         """
         Verify distance reflexivity: ∀x: d(x,x) ≈ 0

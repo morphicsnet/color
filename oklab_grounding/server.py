@@ -77,17 +77,39 @@ def query_nearest(grounding_id: str):
 @app.route('/spaces/oklab/mix', methods=['POST'])
 def mix_colors():
     """Perform color mixing operation."""
-    data = request.json
-    colors_data = data['colors']
-    weights = data.get('weights')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
 
-    colors = [OKLab(**c) for c in colors_data]
-    space = OKLabSpace()
+        colors_data = data.get('colors')
+        if not colors_data or not isinstance(colors_data, list):
+            return jsonify({"error": "colors must be a non-empty list"}), 400
 
-    result = space.mix(colors, weights or [])
-    return jsonify({
-        "result": {"L": result.L, "a": result.a, "b": result.b}
-    })
+        weights = data.get('weights')
+        if weights and not isinstance(weights, list):
+            return jsonify({"error": "weights must be a list or omitted"}), 400
+
+        # Validate color data
+        colors = []
+        for i, c in enumerate(colors_data):
+            try:
+                if not isinstance(c, dict) or 'L' not in c or 'a' not in c or 'b' not in c:
+                    return jsonify({"error": f"color {i} must have L, a, b fields"}), 400
+                color = OKLab(c['L'], c['a'], c['b'])
+                colors.append(color)
+            except Exception as e:
+                return jsonify({"error": f"Invalid color data for color {i}: {str(e)}"}), 400
+
+        space = OKLabSpace()
+        result = space.mix(colors, weights or [])
+
+        return jsonify({
+            "result": {"L": result.L, "a": result.a, "b": result.b}
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @app.route('/cgir/simulate', methods=['POST'])
 def simulate_cgir():

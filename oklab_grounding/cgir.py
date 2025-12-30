@@ -190,21 +190,99 @@ class CGIRBuilder:
         with open(path, 'r') as f:
             return cls.from_dict(json.load(f))
 
-    def simulate(self, steps: int = 100) -> List[Dict[str, Any]]:
+    def simulate(self, steps: int = 100, dt: float = 0.01) -> List[Dict[str, Any]]:
         """
-        Run deterministic simulation.
+        Run geometric simulation over time steps.
 
-        Placeholder implementation - integrates with existing tools/cgir/cli_sim.py
+        Processes interactions and intents to evolve state variables on manifolds.
         """
-        # For now, return empty trajectory
-        # In full implementation, this would call the simulation engine
+        # Initialize state from CGIR state variables
+        current_state = {var.id: var.value for var in self.state}
+
         trajectory = []
+        current_time = 0.0
+
         for step in range(steps):
+            # Record current state
             state_snapshot = {
                 "step": step,
-                "time": step * 0.01,  # Assume 10ms steps
-                "state": {var.id: var.value for var in self.state}
+                "time": current_time,
+                "state": current_state.copy()
             }
             trajectory.append(state_snapshot)
 
+            # Process interactions (energy minimization, couplings)
+            for interaction in self.interactions:
+                self._process_interaction(interaction, current_state)
+
+            # Process intents (geometric operations)
+            for intent in self.intents:
+                if intent.time <= current_time:
+                    self._process_intent(intent, current_state)
+
+            current_time += dt
+
         return trajectory
+
+    def _process_interaction(self, interaction: Interaction, state: Dict[str, Any]) -> None:
+        """
+        Process a single interaction (energy term or coupling).
+        """
+        kind = interaction.kind
+        space_id = interaction.space
+
+        if kind == "convex_mix" and space_id == "oklab":
+            # OKLab convex mixing
+            self._process_convex_mix(interaction, state)
+        # Add more interaction types as needed...
+
+    def _process_convex_mix(self, interaction: Interaction, state: Dict[str, Any]) -> None:
+        """
+        Process convex mixing interaction in OKLab space.
+        """
+        inputs = interaction.inputs or []
+        if len(inputs) < 2:
+            return
+
+        # Get input values from state
+        input_values = []
+        weights = []
+
+        for input_id in inputs:
+            if input_id in state:
+                input_values.append(state[input_id])
+                # Use equal weights if not specified
+                weights.append(1.0 / len(inputs))
+
+        if len(input_values) >= 2:
+            # Perform mixing using OKLab space
+            from .oklab import OKLabSpace
+            space = OKLabSpace()
+
+            # Convert dict values to OKLab objects if needed
+            oklab_values = []
+            for val in input_values:
+                if isinstance(val, dict) and 'L' in val:
+                    oklab_values.append(OKLab(val['L'], val['a'], val['b']))
+                else:
+                    oklab_values.append(val)
+
+            result = space.mix(oklab_values, weights)
+
+            # Update target state (assume first input is target for simplicity)
+            target_id = inputs[0]
+            state[target_id] = {'L': result.L, 'a': result.a, 'b': result.b}
+
+    def _process_intent(self, intent: GeometricIntent, state: Dict[str, Any]) -> None:
+        """
+        Process a geometric intent.
+        """
+        kind = intent.kind
+
+        if kind == "state_injection":
+            # Inject value into state variable
+            target = intent.target
+            value = intent.params.get('value') if intent.params else None
+            if target and value is not None:
+                state[target] = value
+        # Add more intent types as needed...

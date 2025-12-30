@@ -70,18 +70,15 @@ export class Grounding<S> {
         return symbol;
       }
 
-      // Fallback: find closest region center (requires region to have center)
-      try {
-        const center = (region as any).center as S;
-        if (center) {
-          const distance = this.space.distance(point, center);
-          if (distance < minDistance) {
-            minDistance = distance;
-            nearest = symbol;
-          }
+      // Fallback: find closest region center
+      // For SphericalRegion, use the center property
+      const center = this._getRegionCenter(region);
+      if (center) {
+        const distance = this.space.distance(point, center);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = symbol;
         }
-      } catch {
-        // Region doesn't have center, skip
       }
     }
 
@@ -93,18 +90,25 @@ export class Grounding<S> {
     const region1 = this.getRegion(symbol1);
     const region2 = this.getRegion(symbol2);
 
-    // Placeholder implementation
-    // In practice, would compute region overlap or distance
-    try {
-      const center1 = (region1 as any).center as S;
-      const center2 = (region2 as any).center as S;
-      if (center1 && center2) {
-        return 1.0 / (1.0 + this.space.distance(center1, center2));
-      }
-    } catch {
-      // No center information available
+    const center1 = this._getRegionCenter(region1);
+    const center2 = this._getRegionCenter(region2);
+
+    if (center1 && center2) {
+      // Similarity based on distance (higher similarity = lower distance)
+      const distance = this.space.distance(center1, center2);
+      return 1.0 / (1.0 + distance);
     }
 
+    // No center information available
     return 0.0;
+  }
+
+  /** Helper to extract center from region (type-safe) */
+  private _getRegionCenter(region: GroundRegion<S>): S | null {
+    // Check if region has a center property (like SphericalRegion)
+    if ('center' in region && typeof (region as any).center !== 'undefined') {
+      return (region as any).center as S;
+    }
+    return null;
   }
 }

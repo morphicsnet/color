@@ -6,10 +6,18 @@ in perceptual spaces.
 """
 
 from typing import List
-from .space import OKLabSpace, Grounding, SphericalRegion
-from .oklab import OKLab
-from .cgir import CGIRBuilder
-from .verification import verify_oklab_consistency
+try:
+    # When run as part of package
+    from .space import OKLabSpace, Grounding, SphericalRegion
+    from .oklab import OKLab
+    from .cgir import CGIRBuilder
+    from .verification import verify_oklab_consistency
+except ImportError:
+    # When run as standalone script
+    from space import OKLabSpace, Grounding, SphericalRegion
+    from oklab import OKLab
+    from cgir import CGIRBuilder
+    from verification import verify_oklab_consistency
 
 # Example 1: Basic Semantic Color Grounding
 def example_semantic_colors():
