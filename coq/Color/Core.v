@@ -132,4 +132,40 @@ Definition XYZ_Space (D65 : Illuminant) : ColorSpace :=
      cs_metric := R3_metric;
      whitepoint := D65 |}.
 
+(* Symbol as a simple string identifier for grounding *)
+Definition Symbol := string.
+
+(* GroundSpace: Abstract space for symbol grounding
+   - carrier: the type of points in the space
+   - distance: metric between points
+   - mix: convex combination of points with weights
+   - validate: predicate for valid points in the space
+*)
+Record GroundSpace := {
+  carrier  : Type;
+  distance : carrier -> carrier -> R;
+  mix      : list carrier -> list R -> carrier;
+  validate : carrier -> bool
+}.
+
+(* GroundRegion: Abstract geometric region in a ground space
+   - For simplicity, represented as a predicate over the carrier type
+   - Instances can define specific geometric representations (ellipsoids, convex hulls, etc.)
+*)
+Record GroundRegion (S : GroundSpace) := {
+  contains : carrier S -> bool
+}.
+
+(* Grounding: Mapping from symbols to regions in a ground space *)
+Record Grounding (S : GroundSpace) := {
+  regions : Symbol -> GroundRegion S
+}.
+
+(* Basic operations on groundings *)
+Definition get_region {S : GroundSpace} (g : Grounding S) (sym : Symbol) : GroundRegion S :=
+  regions g sym.
+
+Definition region_contains {S : GroundSpace} (r : GroundRegion S) (point : carrier S) : bool :=
+  contains r point.
+
 End ColorCore.

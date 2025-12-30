@@ -13,6 +13,26 @@
       "description": "Semantic version of the CGIR instance",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$"
     },
+    "spaces": {
+      "type": "array",
+      "description": "Geometric manifolds and their metrics (generalized geometric IR)",
+      "items": { "$ref": "#/$defs/Space" }
+    },
+    "state": {
+      "type": "array",
+      "description": "State variables living on manifolds (generalized geometric IR)",
+      "items": { "$ref": "#/$defs/StateVariable" }
+    },
+    "interactions": {
+      "type": "array",
+      "description": "Energy terms and couplings between state variables (PhysIR-style)",
+      "items": { "$ref": "#/$defs/Interaction" }
+    },
+    "operators": {
+      "type": "array",
+      "description": "Canonical geometric operators (distance kernels, flows, etc.)",
+      "items": { "$ref": "#/$defs/Operator" }
+    },
     "droplet": { "$ref": "#/$defs/Droplet" },
     "neurons": {
       "type": "array",
@@ -22,11 +42,16 @@
     },
     "events": {
       "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/EventEntry" }
+      "description": "Legacy color-specific events OR generalized geometric intents",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/EventEntry" },
+          { "$ref": "#/$defs/GeometricIntent" }
+        ]
+      }
     }
   },
-  "required": ["cgir_version", "droplet", "neurons", "events"],
+  "required": ["cgir_version"],
   "$defs": {
     "ID": {
       "type": "string",
@@ -171,6 +196,99 @@
         "provenance": { "type": "object" }
       },
       "required": ["t_ms", "target", "mixing", "mix_raw_ok", "after_projection_ok", "reachable", "output_state_ok"]
+    },
+    "Space": {
+      "type": "object",
+      "description": "Geometric manifold definition",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "kind": { "type": "string", "enum": ["riemannian", "discrete", "statistical"] },
+        "dim": { "type": "integer", "minimum": 1 },
+        "coords": { "type": "string", "description": "Coordinate system name" },
+        "metric": { "type": "string", "description": "Metric identifier" },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "regions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "$ref": "#/$defs/ID" },
+                  "type": { "type": "string" },
+                  "params": { "type": "object" }
+                },
+                "required": ["id", "type"]
+              }
+            }
+          }
+        }
+      },
+      "required": ["id", "kind", "dim", "coords"]
+    },
+    "StateVariable": {
+      "type": "object",
+      "description": "State variable living on a manifold",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "space": { "$ref": "#/$defs/ID", "description": "Reference to space this variable lives on" },
+        "kind": { "type": "string", "enum": ["point", "vector", "field", "neuron"] },
+        "value": { "description": "Current value in coordinate system" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["id", "space", "kind", "value"]
+    },
+    "Interaction": {
+      "type": "object",
+      "description": "Energy term or coupling between state variables (PhysIR Φ)",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "space": { "$ref": "#/$defs/ID" },
+        "kind": { "type": "string", "enum": ["convex_mix", "quadratic_potential", "constraint", "coupling"] },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ID" }
+        },
+        "params": { "type": "object" },
+        "energy": { "type": "string", "description": "Energy functional expression" }
+      },
+      "required": ["id", "space", "kind"]
+    },
+    "Operator": {
+      "type": "object",
+      "description": "Canonical geometric operator (distance kernel, flow, etc.)",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ID" },
+        "space": { "$ref": "#/$defs/ID" },
+        "kind": {
+          "type": "string",
+          "enum": ["distance", "flow", "metric_evolution", "time_step", "optimization"]
+        },
+        "backend": { "type": "string", "description": "Implementation backend identifier" },
+        "params": { "type": "object" }
+      },
+      "required": ["id", "space", "kind", "backend"]
+    },
+    "GeometricIntent": {
+      "type": "object",
+      "description": "Typed intent for geometric operations (generalized EventEntry)",
+      "additionalProperties": false,
+      "properties": {
+        "time": { "type": "number", "minimum": 0 },
+        "kind": {
+          "type": "string",
+          "enum": ["state_injection", "boundary_update", "topology_intent", "operator_step", "metric_update"]
+        },
+        "space": { "$ref": "#/$defs/ID" },
+        "target": { "$ref": "#/$defs/ID" },
+        "params": { "type": "object" },
+        "justification": { "type": "string" }
+      },
+      "required": ["time", "kind"]
     }
   }
 }

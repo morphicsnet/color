@@ -1,0 +1,53 @@
+{
+  "name": "@oklab/grounding",
+  "version": "0.1.0",
+  "description": "Symbol grounding framework for perceptual spaces",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "symbol-grounding",
+    "perceptual-ai",
+    "color-geometry",
+    "oklab",
+    "geometric-computing"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/oklab-grounding.git",
+    "directory": "webapp/packages/grounding"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/oklab-grounding/issues"
+  },
+  "homepage": "https://github.com/your-repo/oklab-grounding#readme",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "prepublishOnly": "npm run build && npm run test:run"
+  },
+  "dependencies": {
+    "@oklab/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^0.34.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0"
+  },
+  "peerDependencies": {
+    "@oklab/core": ">=0.1.0"
+  }
+}

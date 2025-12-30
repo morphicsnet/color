@@ -178,13 +178,55 @@ def _process_event(evt: Dict[str, Any], id2ok: Dict[str, Tuple[float, float, flo
     _set_state_ok(out_ok, Lp, ap, bp, dp)
 
 
+def _is_generalized_geometric_ir(instance: Dict[str, Any]) -> bool:
+    """Check if CGIR uses generalized geometric IR format vs legacy format."""
+    return "spaces" in instance and "state" in instance
+
+def _process_geometric_intent(intent: Dict[str, Any], state: Dict[str, Any], dp: int) -> None:
+    """
+    Process a geometric intent from the generalized IR format.
+
+    This is a placeholder implementation - in practice, this would dispatch
+    to appropriate geometric operations based on intent.kind.
+    """
+    kind = intent.get("kind")
+    if kind == "state_injection":
+        # Update state variable
+        target_id = intent.get("target")
+        value = intent.get("params", {}).get("value")
+        if target_id and value is not None:
+            state[target_id] = value
+    # Add more intent types as needed...
+
 def process_instance(instance: Dict[str, Any], dp: int) -> Dict[str, Any]:
-    id2ok = _collect_neuron_oklab(instance, dp)
-    events = instance.get("events", [])
-    if not isinstance(events, list):
-        return instance
-    for evt in events:
-        _process_event(evt, id2ok, dp)
+    if _is_generalized_geometric_ir(instance):
+        # Process generalized geometric IR
+        state = {var["id"]: var["value"] for var in instance.get("state", [])}
+        intents = instance.get("events", [])
+        if not isinstance(intents, list):
+            return instance
+
+        for intent in intents:
+            if isinstance(intent, dict) and "kind" in intent:
+                # This is a geometric intent
+                _process_geometric_intent(intent, state, dp)
+            # Skip legacy events in generalized format
+
+        # Update state in instance
+        for var in instance.get("state", []):
+            var_id = var["id"]
+            if var_id in state:
+                var["value"] = state[var_id]
+
+    else:
+        # Process legacy CGIR format
+        id2ok = _collect_neuron_oklab(instance, dp)
+        events = instance.get("events", [])
+        if not isinstance(events, list):
+            return instance
+        for evt in events:
+            _process_event(evt, id2ok, dp)
+
     return instance
 
 
